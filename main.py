@@ -49,8 +49,6 @@ async def main():
     # Запуск polling
     try:
         await dp.start_polling(bot, skip_updates=True, allowed_updates=["message"])
-        await bot.unban_chat_member(-1002221193642, 7320802156)
-        logging.info(f"Пользователь 7320802156 разблокирован.")
     except Exception as e:
         logging.error(f"Ошибка при поллинге: {e}")
 
