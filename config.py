@@ -18,5 +18,6 @@ class Config:
 def load_config(path: str | None = None) -> Config:
     env = Env()
     env.read_env(path)
+    read_only = env.list('READ_ONLY', subcast=int)  # Преобразуем строку в список целых чисел
     return Config(tg_bot=TgBot(token=env('API_TOKEN')),
-                  read_only=env('READ_ONLY'))
+                  read_only=read_only)

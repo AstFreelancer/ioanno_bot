@@ -21,8 +21,7 @@ def contains_url(message: Message) -> bool:
 
 
 def is_read_only(message: Message) -> bool:
-#    return message.from_user.id in config.read_only
-    return message.from_user.id == 1873425704
+    return message.from_user.id in config.read_only
 
 
 @dp.message(contains_url)
@@ -37,6 +36,8 @@ async def delete_message_from_read_only(message: Message):
     text = message.text[:30]
     logging.info(f"Удалили сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {text}")
     await message.delete()
+    warning_message = await message.answer(f"@{message.from_user.username}, вам запрещено писать сообщения в этом чате.")
+    await asyncio.create_task(delete_after_delay(warning_message, 10))
 
 async def delete_after_delay(message: Message, delay: int):
     await asyncio.sleep(delay)
