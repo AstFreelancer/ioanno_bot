@@ -21,7 +21,8 @@ def contains_url(message: Message) -> bool:
 
 
 def is_read_only(message: Message) -> bool:
-    return message.from_user.id in config.read_only
+#    return message.from_user.id in config.read_only
+    return message.from_user.id == 1873425704
 
 
 @dp.message(contains_url)
