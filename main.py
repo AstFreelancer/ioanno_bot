@@ -52,6 +52,8 @@ async def main():
     except Exception as e:
         logging.error(f"Ошибка при поллинге: {e}")
 
+    await bot.unban_chat_member(-1002221193642, 7320802156)
+    logging.info(f"Пользователь 7320802156 разблокирован.")
 
 if __name__ == '__main__':
     asyncio.run(main())
