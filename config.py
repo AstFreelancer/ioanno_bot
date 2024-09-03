@@ -11,11 +11,12 @@ class TgBot:
 @dataclass
 class Config:
     tg_bot: TgBot
-
+    read_only: dict[int]
 
 # Создаем функцию, которая будет читать файл .env и возвращать экземпляр
 # класса Config с заполненными полями token и admin_ids
 def load_config(path: str | None = None) -> Config:
     env = Env()
     env.read_env(path)
-    return Config(tg_bot=TgBot(token=env('API_TOKEN')))
+    return Config(tg_bot=TgBot(token=env('API_TOKEN')),
+                  read_only=env('READ_ONLY'))
