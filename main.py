@@ -69,8 +69,10 @@ async def main():
     # Запуск polling
     try:
         await dp.start_polling(bot, skip_updates=True, allowed_updates=["message"])
+        await send_log_to_admin("Бот запущен")
     except Exception as e:
         logging.error(f"Ошибка при поллинге: {e}")
+        await send_log_to_admin(f"Ошибка при поллинге: {e}")
 
 
 if __name__ == '__main__':
