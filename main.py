@@ -11,6 +11,9 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=config.tg_bot.token)
 dp = Dispatcher()  # получает апдейты и выбирает для них хэндлеры
 
+async def send_log_to_admin(text: str):
+    await bot.send_message(config.admin, text)
+
 
 def contains_url(message: Message) -> bool:
     if message.entities:
@@ -34,10 +37,21 @@ async def delete_message_with_url(message: Message):
 @dp.message(is_read_only)
 async def delete_message_from_read_only(message: Message):
     text = message.text[:30]
-    logging.info(f"Удалили сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {text}")
-    await message.delete()
-    warning_message = await message.answer(f"@{message.from_user.username}, вам запрещено писать сообщения в этом чате.")
-    await asyncio.create_task(delete_after_delay(warning_message, 10))
+
+    try:
+        await message.delete()
+        log_message = f"Удалили сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {text}"
+        logging.info(log_message)
+        await send_log_to_admin(log_message)
+
+        warning_message = await message.answer(
+            f"@{message.from_user.username}, вам запрещено писать сообщения в этом чате.")
+        await asyncio.create_task(delete_after_delay(warning_message, 10))
+
+    except Exception as e:
+        error_message = f"❌ Не удалось удалить сообщение от {message.from_user.username} в чате {message.chat.id}: {e}"
+        logging.error(error_message)
+        await send_log_to_admin(error_message)
 
 async def delete_after_delay(message: Message, delay: int):
     await asyncio.sleep(delay)
