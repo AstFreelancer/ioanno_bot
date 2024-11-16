@@ -34,6 +34,9 @@ async def delete_message_with_url(message: Message):
     print(f"Удаляем сообщение от {username}")
     warning_message = await message.answer(f"@{username}, сообщения с гиперссылками запрещены.")
     await message.delete()
+    log_message = f"Удалили сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:30]}"
+    logging.info(log_message)
+    await send_log_to_admin(log_message)
     await asyncio.create_task(delete_after_delay(warning_message, 30))
 
 
