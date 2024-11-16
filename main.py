@@ -1,8 +1,7 @@
 import asyncio
 import logging
-import types
 
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message
 from config import Config, load_config
 
@@ -12,6 +11,7 @@ logging.basicConfig(level=logging.INFO)
 
 bot = Bot(token=config.tg_bot.token)
 dp = Dispatcher()  # получает апдейты и выбирает для них хэндлеры
+
 
 async def send_log_to_admin(text: str):
     await bot.send_message(config.admin, text)
@@ -28,7 +28,6 @@ def contains_url(message: Message) -> bool:
 def is_read_only(message: Message) -> bool:
     return message.from_user.id in config.read_only
 
-
 @dp.message(contains_url)
 async def delete_message_with_url(message: Message):
     username = message.from_user.username
@@ -36,26 +35,26 @@ async def delete_message_with_url(message: Message):
     warning_message = await message.answer(f"@{username}, сообщения с гиперссылками запрещены.")
     await asyncio.create_task(delete_after_delay(warning_message, 30))
 
-@dp.message_handler(content_types=types.ContentType.ANY)
+
+@dp.message(is_read_only)
 async def delete_message_from_read_only(message: Message):
-    user_id = message.from_user.id
-    if user_id in config.read_only:
-        text = message.text[:30]
+    text = message.text[:30]
 
-        try:
-            await message.delete()
-            log_message = f"Удалили сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {text}"
-            logging.info(log_message)
-            await send_log_to_admin(log_message)
+    try:
+        await message.delete()
+        log_message = f"Удалили сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {text}"
+        logging.info(log_message)
+        await send_log_to_admin(log_message)
 
-            warning_message = await message.answer(
-                f"@{message.from_user.username}, вам запрещено писать сообщения в этом чате.")
-            await asyncio.create_task(delete_after_delay(warning_message, 10))
+        warning_message = await message.answer(
+            f"@{message.from_user.username}, вам запрещено писать сообщения в этом чате.")
+        await asyncio.create_task(delete_after_delay(warning_message, 10))
 
-        except Exception as e:
-            error_message = f"❌ Не удалось удалить сообщение от {message.from_user.username} в чате {message.chat.id}: {e}"
-            logging.error(error_message)
-            await send_log_to_admin(error_message)
+    except Exception as e:
+        error_message = f"❌ Не удалось удалить сообщение от {message.from_user.username} в чате {message.chat.id}: {e}"
+        logging.error(error_message)
+        await send_log_to_admin(error_message)
+
 
 async def delete_after_delay(message: Message, delay: int):
     await asyncio.sleep(delay)
@@ -68,8 +67,11 @@ async def main():
 
     # Запуск polling
     try:
-        await dp.start_polling(bot, skip_updates=True, allowed_updates=["message"])
+        logging.info("Бот запущен")
+
         await send_log_to_admin("Бот запущен")
+
+        await dp.start_polling(bot, skip_updates=True, allowed_updates=["message"])
     except Exception as e:
         logging.error(f"Ошибка при поллинге: {e}")
         await send_log_to_admin(f"Ошибка при поллинге: {e}")
