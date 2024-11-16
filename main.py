@@ -32,8 +32,8 @@ def is_read_only(message: Message) -> bool:
 async def delete_message_with_url(message: Message):
     username = message.from_user.username
     print(f"Удаляем сообщение от {username}")
-    await message.delete()
     warning_message = await message.answer(f"@{username}, сообщения с гиперссылками запрещены.")
+    await message.delete()
     await asyncio.create_task(delete_after_delay(warning_message, 30))
 
 
