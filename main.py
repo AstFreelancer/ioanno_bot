@@ -33,7 +33,7 @@ def is_read_only(message: Message) -> bool:
 @dp.message(contains_url)
 async def delete_message_with_url(message: Message):
     username = message.from_user.username
-    print(f"Удаляем сообщение от {username}")
+    await send_log_to_admin(message.reply_to_message.text)
     warning_message = await message.answer(f"@{username}, сообщения с гиперссылками запрещены.")
     await message.delete()
     log_message = f"Удалили сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}"
