@@ -35,8 +35,8 @@ async def send_log_to_admin(text: str):
 
 
 def contains_url(message: Message) -> bool:
-    logging.debug(f"Был тут")
     if message.reply_to_message is not None: # это он всегда считает ссылкой
+        logging.debug(message.reply_to_message.text)
         return False
     if message.entities:
         for entity in message.entities:
