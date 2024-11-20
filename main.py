@@ -18,6 +18,8 @@ async def send_log_to_admin(text: str):
 
 
 def contains_url(message: Message) -> bool:
+    if message.reply_to_message is not None: # это он всегда считает ссылкой
+        return False
     if message.entities:
         for entity in message.entities:
             if entity.type in ["url", "text_link"]:
@@ -34,7 +36,7 @@ async def delete_message_with_url(message: Message):
     print(f"Удаляем сообщение от {username}")
     warning_message = await message.answer(f"@{username}, сообщения с гиперссылками запрещены.")
     await message.delete()
-    log_message = f"Удалили сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:30]}"
+    log_message = f"Удалили сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}"
     logging.info(log_message)
     await send_log_to_admin(log_message)
     await asyncio.create_task(delete_after_delay(warning_message, 30))
