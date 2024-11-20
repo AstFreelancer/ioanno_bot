@@ -4,10 +4,27 @@ import logging
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message
 from config import Config, load_config
+from logging.handlers import TimedRotatingFileHandler
 
 config: Config = load_config()
 
-logging.basicConfig(level=logging.INFO)
+# Настройка обработчика логов с ротацией по времени
+handler = TimedRotatingFileHandler(
+    filename='my_log.log',
+    when='midnight',         # Ротация в полночь
+    interval=1,              # Частота ротации - раз в сутки
+    backupCount=7,           # Сохранять последние 7 файлов логов
+    encoding='utf-8'
+)
+# Форматирование логов
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+handler.setFormatter(formatter)
+logging.basicConfig(
+    level=logging.DEBUG,
+    handlers=[handler]
+)
 
 bot = Bot(token=config.tg_bot.token)
 dp = Dispatcher()  # получает апдейты и выбирает для них хэндлеры
@@ -23,6 +40,10 @@ def contains_url(message: Message) -> bool:
     if message.entities:
         for entity in message.entities:
             if entity.type in ["url", "text_link"]:
+                start = entity.offset
+                end = start + entity.length
+                url_fragment = message.text[start:end]
+                print(f"Нашел ссылку: {url_fragment}")
                 return True
     return False
 
@@ -32,10 +53,6 @@ def is_read_only(message: Message) -> bool:
 
 @dp.message(contains_url)
 async def delete_message_with_url(message: Message):
-    entity_types = [entity.type for entity in message.entities]
-    log_message = "Entities: " + ", ".join(entity_types)
-    await send_log_to_admin(log_message)
-
     username = message.from_user.username
     warning_message = await message.answer(f"@{username}, сообщения с гиперссылками запрещены.")
     await message.delete()
