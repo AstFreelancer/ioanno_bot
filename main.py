@@ -43,7 +43,7 @@ def contains_url(message: Message) -> bool:
                 start = entity.offset
                 end = start + entity.length
                 url_fragment = message.text[start:end]
-                logging.info(f"Нашел ссылку: {url_fragment}")
+                logging.debug(f"Нашел ссылку: {url_fragment}")
                 return True
     return False
 
