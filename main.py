@@ -35,15 +35,9 @@ async def send_log_to_admin(text: str):
 
 
 def contains_url(message: Message) -> bool:
-    if message.reply_to_message is not None: # это он всегда считает ссылкой
-        return False
     if message.entities:
         for entity in message.entities:
             if entity.type in ["url", "text_link"]:
-                start = entity.offset
-                end = start + entity.length
-                url_fragment = message.text[start:end]
-                logging.debug(f"Нашел ссылку: {url_fragment}")
                 return True
     return False
 
@@ -53,22 +47,24 @@ def is_read_only(message: Message) -> bool:
 
 @dp.message(contains_url)
 async def delete_message_with_url(message: Message):
-    username = message.from_user.username
-    warning_message = await message.answer(f"@{username}, сообщения с гиперссылками запрещены.")
-    await message.delete()
-    log_message = f"Удалили сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}"
-    logging.info(log_message)
-    await send_log_to_admin(log_message)
-    await asyncio.create_task(delete_after_delay(warning_message, 30))
-
+    try:
+        username = message.from_user.username
+        warning_message = await message.answer(f"@{username}, сообщения с гиперссылками запрещены.")
+        await message.delete()
+        log_message = f"Удалили сообщение со ссылкой от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}"
+        logging.info(log_message)
+        await send_log_to_admin(log_message)
+        await asyncio.create_task(delete_after_delay(warning_message, 30))
+    except Exception as e:
+        error_message = f"❌ Не удалось удалить сообщение со ссылкой от {message.from_user.username} в чате {message.chat.id}: {e}"
+        logging.error(error_message)
+        await send_log_to_admin(error_message)
 
 @dp.message(is_read_only)
 async def delete_message_from_read_only(message: Message):
-    text = message.text[:30]
-
     try:
         await message.delete()
-        log_message = f"Удалили сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {text}"
+        log_message = f"Удалили сообщение от read-only пользователя {message.from_user.username} ({message.from_user.id})"
         logging.info(log_message)
         await send_log_to_admin(log_message)
 
@@ -77,7 +73,7 @@ async def delete_message_from_read_only(message: Message):
         await asyncio.create_task(delete_after_delay(warning_message, 10))
 
     except Exception as e:
-        error_message = f"❌ Не удалось удалить сообщение от {message.from_user.username} в чате {message.chat.id}: {e}"
+        error_message = f"❌ Не удалось удалить сообщение от read-only пользователя {message.from_user.username} в чате {message.chat.id}: {e}"
         logging.error(error_message)
         await send_log_to_admin(error_message)
 
