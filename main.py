@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from aiogram import Bot, Dispatcher, F
+from aiogram.filters import Command
 from aiogram.types import Message
 from config import Config, load_config
 from logging.handlers import TimedRotatingFileHandler
@@ -44,6 +45,15 @@ def contains_url(message: Message) -> bool:
 
 def is_read_only(message: Message) -> bool:
     return message.from_user.id in config.read_only
+
+
+@dp.message(Command(commands=['ban']))
+async def ban_user(message: Message):
+    try:
+        await bot.ban_chat_member(chat_id=-1002010374304, user_id=5566440515)
+        await message.reply(f"Пользователь 5566440515 забанен в канале.")
+    except Exception as e:
+        await message.reply(f"Произошла ошибка: {e}")
 
 @dp.message(contains_url)
 async def delete_message_with_url(message: Message):
