@@ -43,6 +43,14 @@ def contains_url(message: Message) -> bool:
     return False
 
 
+def contains_spam(message: Message) -> bool:
+    spam_words = ["10к в день", "Выплаты каждый день"]
+    if message.text:
+        for spam_word in spam_words:
+            if spam_word in message.text:
+                return True
+    return False
+
 def is_read_only(message: Message) -> bool:
     return message.from_user.id in config.read_only
 
@@ -69,6 +77,22 @@ async def delete_message_with_url(message: Message):
         error_message = f"❌ Не удалось удалить сообщение со ссылкой от {message.from_user.username} в чате {message.chat.id}: {e}"
         logging.error(error_message)
         await send_log_to_admin(error_message)
+
+@dp.message(contains_spam)
+async def delete_spam_message(message: Message):
+    try:
+        username = message.from_user.username
+        warning_message = await message.answer(f"@{username}, ваше сообщение классифицировано как спам.")
+        await message.delete()
+        log_message = f"Удалили спам-сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}"
+        logging.info(log_message)
+        await send_log_to_admin(log_message)
+        await asyncio.create_task(delete_after_delay(warning_message, 30))
+    except Exception as e:
+        error_message = f"❌ Не удалось удалить спам-сообщение от {message.from_user.username} в чате {message.chat.id}: {e}"
+        logging.error(error_message)
+        await send_log_to_admin(error_message)
+
 
 @dp.message(is_read_only)
 async def delete_message_from_read_only(message: Message):
