@@ -44,7 +44,9 @@ def contains_url(message: Message) -> bool:
 
 
 def contains_spam(message: Message) -> bool:
-    spam_words = ["10к в день", "Выплаты каждый день", "Выплатa ежеднeвнo", "Заработай бабок", "Хочешь заработать деньги?", "Хочешь зарабатывать"]
+    spam_words = ["10к в день", "Выплаты каждый день", "Выплатa ежеднeвнo", "Заработай бабок",
+                  "Хочешь заработать деньги?", "Хочешь зарабатывать", "Рaбота с хopoшими условиями",
+                  "Ищу сoтрyдников"]
     if message.text:
         for spam_word in spam_words:
             if spam_word in message.text:
