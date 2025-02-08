@@ -31,6 +31,8 @@ logging.basicConfig(
 bot = Bot(token=config.tg_bot.token)
 dp = Dispatcher()  # получает апдейты и выбирает для них хэндлеры
 
+CARD_PATTERN = re.compile(r'\b(?:\d[ -]*?){13,19}\b')
+PHONE_PATTERN = re.compile(r'\+?\d{1,3}[ -]?\(?\d{1,4}?\)?[ -]?\d{1,4}[ -]?\d{1,4}[ -]?\d{1,9}')
 
 async def send_log_to_admin(text: str):
     await bot.send_message(config.admin, text)
@@ -54,10 +56,14 @@ def contains_spam(message: Message) -> bool:
             if spam_word in message.text:
                 return True
 
-    # номер банковской карты запрещен
-    card_pattern = re.compile(r'\b(?:\d[ -]*?){13,19}\b')
-    if card_pattern.search(message.text):
-        return True
+        # номер банковской карты запрещен
+        if CARD_PATTERN.search(message.text):
+            return True
+
+        # номер телефона - тоже
+        if PHONE_PATTERN.search(message.text):
+            return True
+
     return False
 
 def is_read_only(message: Message) -> bool:
