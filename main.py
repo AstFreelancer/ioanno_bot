@@ -1,3 +1,4 @@
+import re
 import asyncio
 import logging
 
@@ -47,10 +48,16 @@ def contains_spam(message: Message) -> bool:
     spam_words = ["10к в день", "Выплаты каждый день", "Выплатa ежеднeвнo", "Заработай бабок",
                   "Хочешь заработать деньги?", "Хочешь зарабатывать", "Рaбота с хopoшими условиями",
                   "Ищу сoтрyдников"]
+
     if message.text:
         for spam_word in spam_words:
             if spam_word in message.text:
                 return True
+
+    # номер банковской карты запрещен
+    card_pattern = re.compile(r'\b(?:\d[ -]*?){13,19}\b')
+    if card_pattern.search(message.text):
+        return True
     return False
 
 def is_read_only(message: Message) -> bool:
