@@ -67,8 +67,8 @@ def contains_spam(message: Message) -> bool:
     return False
 
 def is_read_only(message: Message) -> bool:
-    return message.from_user.id in config.read_only
-
+    read_only_ids = [6629270937, 5566440515, 6808823109]
+    return message.from_user.id in read_only_ids
 
 @dp.message(Command(commands=['ban']))
 async def ban_user(message: Message):
