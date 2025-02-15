@@ -31,9 +31,9 @@ logging.basicConfig(
 bot = Bot(token=config.tg_bot.token)
 dp = Dispatcher()  # получает апдейты и выбирает для них хэндлеры
 
-CARD_PATTERN = re.compile(r'\b(?:\d[ -]*?){13,19}\b')
+CARD_PATTERN = re.compile(r'(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)')
 PHONE_PATTERN = re.compile(
-    r'(?:\+7|8)[ -]?(?:\(\d{3}\)|\d{3})[ -]?\d{3}[ -]?\d{2}[ -]?\d{2}'
+    r'(?<!\d)(?:\+7|8)[ -]?(?:\(\d{3}\)|\d{3})[ -]?\d{3}[ -]?\d{2}[ -]?\d{2}(?!\d)'
 )
 
 async def send_log_to_admin(text: str):
@@ -49,9 +49,9 @@ def contains_url(message: Message) -> bool:
 
 
 def contains_spam(message: Message) -> bool:
-    spam_words = ["10к в день", "Выплаты каждый день", "Выплатa ежеднeвнo", "Заработай бабок",
+    spam_words = ["Тинькофф", "10к в день", "Выплаты", "Выплаты каждый день", "Выплатa ежеднeвнo", "Заработай бабок",
                   "Хочешь заработать деньги?", "Хочешь зарабатывать", "Рaбота с хopoшими условиями",
-                  "Ищу сoтрyдников"]
+                  "Ищу сoтрyдников", "Трeбуются coтрyдники", "Ищу сотрудников", "нeслoжныe задачи", "Bыплаты бeз задeржeк"]
 
     if message.text:
         for spam_word in spam_words:
