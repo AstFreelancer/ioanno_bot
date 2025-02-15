@@ -32,7 +32,9 @@ bot = Bot(token=config.tg_bot.token)
 dp = Dispatcher()  # получает апдейты и выбирает для них хэндлеры
 
 CARD_PATTERN = re.compile(r'\b(?:\d[ -]*?){13,19}\b')
-PHONE_PATTERN = re.compile(r'\+?\d{1,3}[ -]?\(?\d{1,4}?\)?[ -]?\d{1,4}[ -]?\d{1,4}[ -]?\d{1,9}')
+PHONE_PATTERN = re.compile(
+    r'^(?:\+7|8)[ -]?\(?\d{3}\)?[ -]?\d{3}[ -]?\d{2}[ -]?\d{2}$'
+)
 
 async def send_log_to_admin(text: str):
     await bot.send_message(config.admin, text)
