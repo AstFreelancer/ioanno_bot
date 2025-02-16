@@ -1,3 +1,4 @@
+import json
 import re
 import asyncio
 import logging
@@ -7,15 +8,20 @@ from aiogram.filters import Command
 from aiogram.types import Message
 from config import Config, load_config
 from logging.handlers import TimedRotatingFileHandler
+from openai import OpenAI
 
 config: Config = load_config()
+
+client = OpenAI(
+    api_key=config.openai_token,
+)
 
 # Настройка обработчика логов с ротацией по времени
 handler = TimedRotatingFileHandler(
     filename='my_log.log',
-    when='midnight',         # Ротация в полночь
-    interval=1,              # Частота ротации - раз в сутки
-    backupCount=7,           # Сохранять последние 7 файлов логов
+    when='midnight',  # Ротация в полночь
+    interval=1,  # Частота ротации - раз в сутки
+    backupCount=7,  # Сохранять последние 7 файлов логов
     encoding='utf-8'
 )
 # Форматирование логов
@@ -36,6 +42,93 @@ PHONE_PATTERN = re.compile(
     r'(?<!\d)(?:\+7|8)[ -]?(?:\(\d{3}\)|\d{3})[ -]?\d{3}[ -]?\d{2}[ -]?\d{2}(?!\d)'
 )
 
+prompt_template = (
+    "Определи, является ли следующий комментарий спамом, особенно с просьбой о переводе денег или предложением работы. "
+    "Обоснуй свой ответ одним кратким предложением. "
+    "Верни ответ в формате JSON с двумя полями: "
+    "'is_spam' (значения: 'да' или 'нет') и 'reason' (обоснование). "
+    "Комментарий: {comment}"
+)
+
+
+def sanitize_comment(comment: str) -> str:
+    if not isinstance(comment, str):
+        return ""
+
+    # Экранируем фигурные скобки
+    comment = comment.replace("{", "{{").replace("}", "}}")
+
+    # Удаляем управляющие символы (ASCII 0-31 и 127)
+    comment = re.sub(r'[\x00-\x1F\x7F]', '', comment)
+
+    return comment
+
+
+def extract_json(text: str) -> str | None:
+    try:
+        # Находим первую открывающуюся и последнюю закрывающуюся фигурную скобку
+        start = text.find('{')
+        end = text.rfind('}')
+        if start != -1 and end != -1 and end > start:
+            return text[start:end + 1]
+        else:
+            return None
+    except Exception as e:
+        logging.error("Ошибка при извлечении JSON: %s", e)
+    return None
+
+
+def parse_bot_response(api_response: str) -> dict:
+    try:
+        json_str = extract_json(api_response)
+        if not json_str:
+            logging.error("Не удалось выделить JSON из ответа.")
+            return {}  # можно вернуть None или пустой словарь
+
+        data = json.loads(json_str)
+
+        # Безопасно пытаемся получить необходимые поля
+        is_spam = data.get("is_spam")
+        reason = data.get("reason")
+        return {"is_spam": is_spam, "reason": reason}
+
+    except json.JSONDecodeError as e:
+        logging.error("Ошибка декодирования JSON: %s", e)
+    except Exception as e:
+        logging.error("Ошибка при парсинге ответа: %s", e)
+
+    return {}  # если что-то пошло не так, возвращаем пустой словарь
+
+
+def get_openai_response(prompt_template: str, comment: str) -> dict:
+    try:
+        if not prompt_template or not comment:
+            logging.error("Неверные входные параметры: prompt_template или comment не заданы")
+            return {}
+
+        prompt = prompt_template.format(comment=sanitize_comment(comment))
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            max_tokens=1000,
+        )
+        result = response.choices[0].message.content.strip()
+        return parse_bot_response(result)
+
+    except ValueError as e:
+        logging.error(f"Ошибка в структуре ответа: {e}")
+        return {}
+
+    except Exception as e:
+        logging.error(f"Произошла ошибка при получении завершения чата: {e}")
+        return {}
+
+
 async def send_log_to_admin(text: str):
     await bot.send_message(config.admin, text)
 
@@ -51,7 +144,9 @@ def contains_url(message: Message) -> bool:
 def contains_spam(message: Message) -> bool:
     spam_words = ["Тинькофф", "10к в день", "Выплаты", "Выплаты каждый день", "Выплатa ежеднeвнo", "Заработай бабок",
                   "Хочешь заработать деньги?", "Хочешь зарабатывать", "Рaбота с хopoшими условиями",
-                  "Ищу сoтрyдников", "Трeбуются coтрyдники", "Ищу сотрудников", "нeслoжныe задачи", "Bыплаты бeз задeржeк"]
+                  "Ищу курьера", "Требуются курьеры",
+                  "Ищу сoтрyдников", "Трeбуются coтрyдники", "Ищу сотрудников", "нeслoжныe задачи",
+                  "Bыплаты бeз задeржeк"]
 
     if message.text:
         for spam_word in spam_words:
@@ -68,9 +163,11 @@ def contains_spam(message: Message) -> bool:
 
     return False
 
+
 def is_read_only(message: Message) -> bool:
-    read_only_ids = [6629270937, 5566440515, 6808823109]
+    read_only_ids = [6629270937, 5566440515, 6808823109, 6808823109]
     return message.from_user.id in read_only_ids
+
 
 @dp.message(Command(commands=['ban']))
 async def ban_user(message: Message):
@@ -79,6 +176,7 @@ async def ban_user(message: Message):
         await message.reply(f"Пользователь 5566440515 забанен в канале.")
     except Exception as e:
         await message.reply(f"Произошла ошибка: {e}")
+
 
 @dp.message(contains_url)
 async def delete_message_with_url(message: Message):
@@ -94,6 +192,7 @@ async def delete_message_with_url(message: Message):
         error_message = f"❌ Не удалось удалить сообщение со ссылкой от {message.from_user.username} в чате {message.chat.id}: {e}"
         logging.error(error_message)
         await send_log_to_admin(error_message)
+
 
 @dp.message(contains_spam)
 async def delete_spam_message(message: Message):
@@ -125,6 +224,25 @@ async def delete_message_from_read_only(message: Message):
 
     except Exception as e:
         error_message = f"❌ Не удалось удалить сообщение от read-only пользователя {message.from_user.username} в чате {message.chat.id}: {e}"
+        logging.error(error_message)
+        await send_log_to_admin(error_message)
+
+
+@dp.message()
+async def check_with_openai(message: Message):
+    try:
+        result = get_openai_response(prompt_template, message.text)
+        if result.get("is_spam", "нет").lower() == "да":
+            reason = result.get("reason", "Причина не указана")
+            username = message.from_user.username
+            warning_message = await message.answer(f"@{username}, ваше сообщение классифицировано как спам. {reason}")
+            await message.delete()
+            log_message = f"Удалили спам-сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}. Причина: {reason}"
+            logging.info(log_message)
+            await send_log_to_admin(log_message)
+            await asyncio.create_task(delete_after_delay(warning_message, 30))
+    except Exception as e:
+        error_message = f"❌ Не удалось удалить спам-сообщение от {message.from_user.username} в чате {message.chat.id}: {e}"
         logging.error(error_message)
         await send_log_to_admin(error_message)
 
