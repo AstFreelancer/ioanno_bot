@@ -200,7 +200,7 @@ async def delete_spam_message(message: Message):
         username = message.from_user.username
         warning_message = await message.answer(f"@{username}, ваше сообщение классифицировано как спам.")
         await message.delete()
-        log_message = f"Удалили спам-сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}"
+        log_message = f"! Удалили спам-сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}"
         logging.info(log_message)
         await send_log_to_admin(log_message)
         await asyncio.create_task(delete_after_delay(warning_message, 30))
