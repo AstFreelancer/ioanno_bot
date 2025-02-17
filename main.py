@@ -130,7 +130,7 @@ def get_openai_response(prompt_template: str, comment: str) -> dict:
 
 
 async def send_log_to_admin(text: str):
-    await bot.send_message(config.admin, text, parse_mode="Markdown")
+    await bot.send_message(config.admin, text, parse_mode="MarkdownV2")
 
 
 def contains_url(message: Message) -> bool:
