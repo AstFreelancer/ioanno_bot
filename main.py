@@ -130,7 +130,7 @@ def get_openai_response(prompt_template: str, comment: str) -> dict:
 
 
 async def send_log_to_admin(text: str):
-    await bot.send_message(config.admin, text, parse_mode="MarkdownV2")
+    await bot.send_message(config.admin, text)
 
 
 def contains_url(message: Message) -> bool:
@@ -184,7 +184,7 @@ async def delete_message_with_url(message: Message):
         username = message.from_user.username
         warning_message = await message.answer(f"@{username}, сообщения с гиперссылками запрещены.")
         await message.delete()
-        log_message = f"Удалили сообщение со ссылкой от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}"
+        log_message = f"✔️ Удалили сообщение со ссылкой от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}"
         logging.info(log_message)
         await send_log_to_admin(log_message)
         await asyncio.create_task(delete_after_delay(warning_message, 30))
@@ -200,7 +200,7 @@ async def delete_spam_message(message: Message):
         username = message.from_user.username
         warning_message = await message.answer(f"@{username}, ваше сообщение классифицировано как спам.")
         await message.delete()
-        log_message = f"! Удалили спам-сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}"
+        log_message = f"✔️ Удалили спам-сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}"
         logging.info(log_message)
         await send_log_to_admin(log_message)
         await asyncio.create_task(delete_after_delay(warning_message, 30))
@@ -214,7 +214,7 @@ async def delete_spam_message(message: Message):
 async def delete_message_from_read_only(message: Message):
     try:
         await message.delete()
-        log_message = f"Удалили сообщение от read-only пользователя {message.from_user.username} ({message.from_user.id})"
+        log_message = f"✔️ Удалили сообщение от read-only пользователя {message.from_user.username} ({message.from_user.id})"
         logging.info(log_message)
         await send_log_to_admin(log_message)
 
@@ -238,12 +238,13 @@ async def check_with_openai(message: Message):
         else:
             verdict = result.get("is_spam", "нет").lower()
             reason = result.get("reason", "Причина не указана")
-            await send_log_to_admin(f"Вердикт: {verdict}.\\n*\\*Пояснение:\\** {reason}")
+            pic = "✔️" if verdict == "нет" else "❌"
+            await send_log_to_admin(f"{pic} {reason}")
             if verdict == "да":
                 username = message.from_user.username
                 warning_message = await message.answer(f"@{username}, ваше сообщение классифицировано как спам. {reason}")
                 await message.delete()
-                log_message = f"Удалили спам-сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}. Причина: {reason}"
+                log_message = f"✔️ Удалили спам-сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}. Причина: {reason}"
                 logging.info(log_message)
                 await send_log_to_admin(log_message)
                 await asyncio.create_task(delete_after_delay(warning_message, 30))
