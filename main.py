@@ -130,7 +130,7 @@ def get_openai_response(prompt_template: str, comment: str) -> dict:
 
 
 async def send_log_to_admin(text: str):
-    await bot.send_message(config.admin, text)
+    await bot.send_message(config.admin, text, parse_mode="Markdown")
 
 
 def contains_url(message: Message) -> bool:
@@ -231,18 +231,22 @@ async def delete_message_from_read_only(message: Message):
 @dp.message()
 async def check_with_openai(message: Message):
     try:
-        await send_log_to_admin("Пытаюсь отправить запрос в OpenAI")
+        await send_log_to_admin("Отправляю запрос в OpenAI...")
         result = get_openai_response(prompt_template, message.text)
-        await send_log_to_admin(f"Пришел ответ {result}")
-        if result.get("is_spam", "нет").lower() == "да":
+        if result == {}:
+            await send_log_to_admin(f"Ошибка обработки запроса!")
+        else:
+            verdict = result.get("is_spam", "нет").lower()
             reason = result.get("reason", "Причина не указана")
-            username = message.from_user.username
-            warning_message = await message.answer(f"@{username}, ваше сообщение классифицировано как спам. {reason}")
-            await message.delete()
-            log_message = f"Удалили спам-сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}. Причина: {reason}"
-            logging.info(log_message)
-            await send_log_to_admin(log_message)
-            await asyncio.create_task(delete_after_delay(warning_message, 30))
+            await send_log_to_admin(f"**Вердикт:** {verdict}.\n**Пояснение:** {reason}")
+            if verdict == "да":
+                username = message.from_user.username
+                warning_message = await message.answer(f"@{username}, ваше сообщение классифицировано как спам. {reason}")
+                await message.delete()
+                log_message = f"Удалили спам-сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}. Причина: {reason}"
+                logging.info(log_message)
+                await send_log_to_admin(log_message)
+                await asyncio.create_task(delete_after_delay(warning_message, 30))
     except Exception as e:
         error_message = f"❌ Не удалось удалить спам-сообщение от {message.from_user.username} в чате {message.chat.id}: {e}"
         logging.error(error_message)
