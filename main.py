@@ -238,7 +238,7 @@ async def check_with_openai(message: Message):
         else:
             verdict = result.get("is_spam", "нет").lower()
             reason = result.get("reason", "Причина не указана")
-            await send_log_to_admin(f"**Вердикт:** {verdict}.\n**Пояснение:** {reason}")
+            await send_log_to_admin(f"Вердикт: {verdict}.\\n*\\*Пояснение:\\** {reason}")
             if verdict == "да":
                 username = message.from_user.username
                 warning_message = await message.answer(f"@{username}, ваше сообщение классифицировано как спам. {reason}")
