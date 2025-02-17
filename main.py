@@ -231,7 +231,9 @@ async def delete_message_from_read_only(message: Message):
 @dp.message()
 async def check_with_openai(message: Message):
     try:
+        await send_log_to_admin("Пытаюсь отправить запрос в OpenAI")
         result = get_openai_response(prompt_template, message.text)
+        await send_log_to_admin(f"Пришел ответ {result}")
         if result.get("is_spam", "нет").lower() == "да":
             reason = result.get("reason", "Причина не указана")
             username = message.from_user.username
