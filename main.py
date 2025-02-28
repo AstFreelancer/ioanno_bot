@@ -148,17 +148,23 @@ def contains_spam(message: Message) -> bool:
                   "Ищу сoтрyдников", "Трeбуются coтрyдники", "Ищу сотрудников", "нeслoжныe задачи",
                   "Bыплаты бeз задeржeк"]
 
+    text_to_process = None
     if message.text:
+        text_to_process = message.text
+    elif message.caption:
+        text_to_process = message.caption
+
+    if text_to_process:
         for spam_word in spam_words:
-            if spam_word in message.text:
+            if spam_word in text_to_process:
                 return True
 
         # номер банковской карты запрещен
-        if CARD_PATTERN.search(message.text):
+        if CARD_PATTERN.search(text_to_process):
             return True
 
         # номер телефона - тоже
-        if PHONE_PATTERN.search(message.text):
+        if PHONE_PATTERN.search(text_to_process):
             return True
 
     return False
@@ -231,23 +237,30 @@ async def delete_message_from_read_only(message: Message):
 @dp.message()
 async def check_with_openai(message: Message):
     try:
-        await send_log_to_admin("Отправляю запрос в OpenAI...")
-        result = get_openai_response(prompt_template, message.text)
-        if result == {}:
-            await send_log_to_admin(f"Ошибка обработки запроса!")
-        else:
-            verdict = result.get("is_spam", "нет").lower()
-            reason = result.get("reason", "Причина не указана")
-            pic = "✔️" if verdict == "нет" else "❌"
-            await send_log_to_admin(f"{pic} {reason}")
-            if verdict == "да":
-                username = message.from_user.username
-                warning_message = await message.answer(f"@{username}, ваше сообщение классифицировано как спам. {reason}")
-                await message.delete()
-                log_message = f"✔️ Удалили спам-сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}. Причина: {reason}"
-                logging.info(log_message)
-                await send_log_to_admin(log_message)
-                await asyncio.create_task(delete_after_delay(warning_message, 30))
+        text_to_process = None
+        if message.text:
+            text_to_process = message.text
+        elif message.caption:
+            text_to_process = message.caption
+
+        if text_to_process:
+            await send_log_to_admin("Отправляю запрос в OpenAI...")
+            result = get_openai_response(prompt_template, text_to_process)
+            if result == {}:
+                await send_log_to_admin(f"Ошибка обработки запроса!")
+            else:
+                verdict = result.get("is_spam", "нет").lower()
+                reason = result.get("reason", "Причина не указана")
+                pic = "✔️" if verdict == "нет" else "❌"
+                await send_log_to_admin(f"{pic} {reason}")
+                if verdict == "да":
+                    username = message.from_user.username
+                    warning_message = await message.answer(f"@{username}, ваше сообщение классифицировано как спам. {reason}")
+                    await message.delete()
+                    log_message = f"✔️ Удалили спам-сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}. Причина: {reason}"
+                    logging.info(log_message)
+                    await send_log_to_admin(log_message)
+                    await asyncio.create_task(delete_after_delay(warning_message, 30))
     except Exception as e:
         error_message = f"❌ Не удалось удалить спам-сообщение от {message.from_user.username} в чате {message.chat.id}: {e}"
         logging.error(error_message)
