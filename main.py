@@ -271,6 +271,23 @@ async def delete_voice_message(message: Message):
         await send_log_to_admin(error_message)
 
 
+@dp.message(lambda message: message.sticker and is_not_channel_post(message))
+async def delete_sticker_message(message: Message):
+    username = "неизвестный пользователь"
+    try:
+        if message.from_user:
+            username = message.from_user.username or str(message.from_user.id)
+        warning_message = await message.answer(f"@{username}, стикеры запрещены.")
+        await message.delete()
+        log_message = f"✔️ Удален стикер от пользователя {username} ({message.from_user.id})."
+        logging.info(log_message)
+        await send_log_to_admin(log_message)
+        await asyncio.create_task(delete_after_delay(warning_message, 30))
+    except Exception as e:
+        error_message = f"❌ Не удалось удалить стикер от {username}: {e}"
+        logging.error(error_message)
+        await send_log_to_admin(error_message)
+
 @dp.message(is_not_channel_post)
 async def check_with_openai(message: Message):
     if message is None:
