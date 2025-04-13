@@ -42,8 +42,12 @@ PHONE_PATTERN = re.compile(
     r'(?<!\d)(?:\+7|8)[ -]?(?:\(\d{3}\)|\d{3})[ -]?\d{3}[ -]?\d{2}[ -]?\d{2}(?!\d)'
 )
 
+CHANNEL_ID = -1002010374304
+
 prompt_template = (
-    "Определи, является ли следующий комментарий спамом, особенно с просьбой о переводе денег или предложением работы. "
+    "Определи, является ли следующий комментарий спамом, особенно с просьбой о переводе денег или явным или завуалированным предложением работы. "
+    "Например: Нyжeн чeловек, готовый помoчь c нeскoлькими зaдачaми, пиши в ЛC, если зaинтeреcовало! - даже это спам. "
+    "Честные предложения вакансий тоже считай спамом. "
     "Обоснуй свой ответ одним кратким предложением. "
     "Верни ответ в формате JSON с двумя полями: "
     "'is_spam' (значения: 'да' или 'нет') и 'reason' (обоснование). "
@@ -133,6 +137,7 @@ async def send_log_to_admin(text: str):
     await bot.send_message(config.admin, text)
 
 
+# добавить проверку на @...bot
 def contains_url(message: Message) -> bool:
     if message.entities:
         for entity in message.entities:
@@ -175,6 +180,10 @@ def is_read_only(message: Message) -> bool:
     return message.from_user.id in read_only_ids
 
 
+def is_not_channel_post(message: Message) -> bool:
+    return not (message.sender_chat and message.sender_chat.id == CHANNEL_ID)
+
+
 @dp.message(Command(commands=['ban']))
 async def ban_user(message: Message):
     try:
@@ -184,58 +193,91 @@ async def ban_user(message: Message):
         await message.reply(f"Произошла ошибка: {e}")
 
 
-@dp.message(contains_url)
+@dp.message(lambda message: contains_url(message) and is_not_channel_post(message))
 async def delete_message_with_url(message: Message):
+    username = "неизвестный пользователь"
     try:
-        username = message.from_user.username
+        if message.from_user:
+            username = message.from_user.username or str(message.from_user.id)
+
         warning_message = await message.answer(f"@{username}, сообщения с гиперссылками запрещены.")
         await message.delete()
-        log_message = f"✔️ Удалили сообщение со ссылкой от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}"
+        log_message = f"✔️ Удалили сообщение со ссылкой от пользователя {username} ({message.from_user.id}), который писал: {message.text[:100]}"
         logging.info(log_message)
         await send_log_to_admin(log_message)
         await asyncio.create_task(delete_after_delay(warning_message, 30))
     except Exception as e:
-        error_message = f"❌ Не удалось удалить сообщение со ссылкой от {message.from_user.username} в чате {message.chat.id}: {e}"
+        error_message = f"❌ Не удалось удалить сообщение со ссылкой от {username} в чате {message.chat.id}: {e}"
         logging.error(error_message)
         await send_log_to_admin(error_message)
 
 
-@dp.message(contains_spam)
+@dp.message(lambda message: contains_spam(message) and is_not_channel_post(message))
 async def delete_spam_message(message: Message):
+    username = "неизвестный пользователь"
     try:
-        username = message.from_user.username
+        if message.from_user:
+            username = message.from_user.username or str(message.from_user.id)
+
         warning_message = await message.answer(f"@{username}, ваше сообщение классифицировано как спам.")
         await message.delete()
-        log_message = f"✔️ Удалили спам-сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}"
+        log_message = f"✔️ Удалили спам-сообщение от пользователя {username} ({message.from_user.id}), который писал: {message.text[:100]}"
         logging.info(log_message)
         await send_log_to_admin(log_message)
         await asyncio.create_task(delete_after_delay(warning_message, 30))
     except Exception as e:
-        error_message = f"❌ Не удалось удалить спам-сообщение от {message.from_user.username} в чате {message.chat.id}: {e}"
+        error_message = f"❌ Не удалось удалить спам-сообщение от {username} в чате {message.chat.id}: {e}"
         logging.error(error_message)
         await send_log_to_admin(error_message)
 
 
-@dp.message(is_read_only)
+@dp.message(lambda message: is_read_only(message) and is_not_channel_post(message))
 async def delete_message_from_read_only(message: Message):
+    username = "неизвестный пользователь"
     try:
+        if message.from_user:
+            username = message.from_user.username or str(message.from_user.id)
+
         await message.delete()
-        log_message = f"✔️ Удалили сообщение от read-only пользователя {message.from_user.username} ({message.from_user.id})"
+        log_message = f"✔️ Удалили сообщение от read-only пользователя {username} ({message.from_user.id})"
         logging.info(log_message)
         await send_log_to_admin(log_message)
 
         warning_message = await message.answer(
-            f"@{message.from_user.username}, вам запрещено писать сообщения в этом чате.")
+            f"@{username}, вам запрещено писать сообщения в этом чате.")
         await asyncio.create_task(delete_after_delay(warning_message, 10))
 
     except Exception as e:
-        error_message = f"❌ Не удалось удалить сообщение от read-only пользователя {message.from_user.username} в чате {message.chat.id}: {e}"
+        error_message = f"❌ Не удалось удалить сообщение от read-only пользователя {username} в чате {message.chat.id}: {e}"
         logging.error(error_message)
         await send_log_to_admin(error_message)
 
 
-@dp.message()
+@dp.message(lambda message: message.voice is not None and is_not_channel_post(message))
+async def delete_voice_message(message: Message):
+    username = "неизвестный пользователь"
+    try:
+        if message.from_user:
+            username = message.from_user.username or str(message.from_user.id)
+        warning_message = await message.answer(f"@{username}, голосовые сообщения запрещены.")
+        await message.delete()
+        log_message = f"✔️ Удалено голосовое сообщение от пользователя {username} ({message.from_user.id})."
+        logging.info(log_message)
+        await send_log_to_admin(log_message)
+        await asyncio.create_task(delete_after_delay(warning_message, 30))
+    except Exception as e:
+        error_message = f"❌ Не удалось удалить голосовое сообщение от {username}: {e}"
+        logging.error(error_message)
+        await send_log_to_admin(error_message)
+
+
+@dp.message(is_not_channel_post)
 async def check_with_openai(message: Message):
+    if message is None:
+        logging.error("❌ Получено пустое сообщение.")
+        await send_log_to_admin("❌ Получено пустое сообщение.")
+        return
+
     try:
         text_to_process = None
         if message.text:
@@ -244,7 +286,7 @@ async def check_with_openai(message: Message):
             text_to_process = message.caption
 
         if text_to_process:
-            await send_log_to_admin("Отправляю запрос в OpenAI...")
+            # await send_log_to_admin("Отправляю запрос в OpenAI...")
             result = get_openai_response(prompt_template, text_to_process)
             if result == {}:
                 await send_log_to_admin(f"Ошибка обработки запроса!")
@@ -252,12 +294,13 @@ async def check_with_openai(message: Message):
                 verdict = result.get("is_spam", "нет").lower()
                 reason = result.get("reason", "Причина не указана")
                 pic = "✔️" if verdict == "нет" else "❌"
-                await send_log_to_admin(f"{pic} {reason}")
-                if verdict == "да":
-                    username = message.from_user.username
-                    warning_message = await message.answer(f"@{username}, ваше сообщение классифицировано как спам. {reason}")
+                # await send_log_to_admin(f"{pic} {reason}")
+                if verdict == "да" and message.from_user and message.chat:
+                    username = message.from_user.username or str(message.from_user.id)
+                    warning_message = await message.answer(
+                        f"@{username}, ваше сообщение классифицировано как спам. {reason}")
                     await message.delete()
-                    log_message = f"✔️ Удалили спам-сообщение от пользователя {message.from_user.username} ({message.from_user.id}), который писал: {message.text[:100]}. Причина: {reason}"
+                    log_message = f"✔️ Удалили спам-сообщение от пользователя {username} ({message.from_user.id if message.from_user.id else 'неизвестно'}), который писал: {message.text[:100]}. Причина: {reason}"
                     logging.info(log_message)
                     await send_log_to_admin(log_message)
                     await asyncio.create_task(delete_after_delay(warning_message, 30))
