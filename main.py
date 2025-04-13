@@ -42,7 +42,7 @@ PHONE_PATTERN = re.compile(
     r'(?<!\d)(?:\+7|8)[ -]?(?:\(\d{3}\)|\d{3})[ -]?\d{3}[ -]?\d{2}[ -]?\d{2}(?!\d)'
 )
 
-CHANNEL_ID = -1002010374304
+# CHANNEL_ID = -1002010374304
 
 prompt_template = (
     "Определи, является ли следующий комментарий спамом, особенно с просьбой о переводе денег или явным или завуалированным предложением работы. "
@@ -181,7 +181,7 @@ def is_read_only(message: Message) -> bool:
 
 
 def is_not_channel_post(message: Message) -> bool:
-    return not (message.sender_chat and message.sender_chat.id == CHANNEL_ID)
+    return not (message.sender_chat and message.sender_chat.id == config.channel_id)
 
 
 @dp.message(Command(commands=['ban']))
