@@ -19,12 +19,12 @@ client = OpenAI(
 # Настройка обработчика логов с ротацией по времени
 handler = TimedRotatingFileHandler(
     filename='my_log.log',
-    when='midnight',  # Ротация в полночь
-    interval=1,  # Частота ротации - раз в сутки
-    backupCount=7,  # Сохранять последние 7 файлов логов
+    when='midnight',
+    interval=1,
+    backupCount=7,
     encoding='utf-8'
 )
-# Форматирование логов
+
 formatter = logging.Formatter(
     '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
@@ -35,14 +35,12 @@ logging.basicConfig(
 )
 
 bot = Bot(token=config.tg_bot.token)
-dp = Dispatcher()  # получает апдейты и выбирает для них хэндлеры
+dp = Dispatcher()
 
 CARD_PATTERN = re.compile(r'(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)')
 PHONE_PATTERN = re.compile(
     r'(?<!\d)(?:\+7|8)[ -]?(?:\(\d{3}\)|\d{3})[ -]?\d{3}[ -]?\d{2}[ -]?\d{2}(?!\d)'
 )
-
-# CHANNEL_ID = -1002010374304
 
 prompt_template = (
     "Определи, является ли следующий комментарий спамом, особенно с просьбой о переводе денег или явным или завуалированным предложением работы. "
@@ -59,10 +57,8 @@ def sanitize_comment(comment: str) -> str:
     if not isinstance(comment, str):
         return ""
 
-    # Экранируем фигурные скобки
     comment = comment.replace("{", "{{").replace("}", "}}")
 
-    # Удаляем управляющие символы (ASCII 0-31 и 127)
     comment = re.sub(r'[\x00-\x1F\x7F]', '', comment)
 
     return comment
@@ -70,7 +66,6 @@ def sanitize_comment(comment: str) -> str:
 
 def extract_json(text: str) -> str | None:
     try:
-        # Находим первую открывающуюся и последнюю закрывающуюся фигурную скобку
         start = text.find('{')
         end = text.rfind('}')
         if start != -1 and end != -1 and end > start:
@@ -87,11 +82,10 @@ def parse_bot_response(api_response: str) -> dict:
         json_str = extract_json(api_response)
         if not json_str:
             logging.error("Не удалось выделить JSON из ответа.")
-            return {}  # можно вернуть None или пустой словарь
+            return {}
 
         data = json.loads(json_str)
 
-        # Безопасно пытаемся получить необходимые поля
         is_spam = data.get("is_spam")
         reason = data.get("reason")
         return {"is_spam": is_spam, "reason": reason}
@@ -333,10 +327,8 @@ async def delete_after_delay(message: Message, delay: int):
 
 
 async def main():
-    # Отключаем webhook, если он используется
     await bot.delete_webhook(drop_pending_updates=True)
 
-    # Запуск polling
     try:
         logging.info("Бот запущен")
 
