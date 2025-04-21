@@ -1,7 +1,9 @@
 import json
+import os
 import re
 import asyncio
 import logging
+import tempfile
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command
@@ -9,6 +11,9 @@ from aiogram.types import Message
 from config import Config, load_config
 from logging.handlers import TimedRotatingFileHandler
 from openai import OpenAI
+
+from PIL import Image
+import imagehash
 
 config: Config = load_config()
 
@@ -177,6 +182,39 @@ def is_read_only(message: Message) -> bool:
 def is_not_channel_post(message: Message) -> bool:
     return not (message.sender_chat and message.sender_chat.id == config.channel_id)
 
+async def is_forbidden_photo(message: Message) -> bool:
+    """
+    Скачивает фото и сравнивает его phash с базой forbidden_hashes.
+    """
+    if not message.photo:
+        return False
+
+    # берём максимально качественный вариант
+    file_id = message.photo[-1].file_id
+    file = await bot.get_file(file_id)
+    # скачиваем во временный файл
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+        await bot.download_file(file.file_path, tmp.name)
+        tmp_path = tmp.name
+
+    try:
+        img = Image.open(tmp_path)
+        msg_hash = imagehash.phash(img)
+    except Exception as e:
+        logging.error(f"Ошибка при вычислении хеша присланного фото: {e}")
+        return False
+    finally:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+
+    # сравниваем с каждым хешем из базы
+    for fh in config.forbidden_hashes:
+        if msg_hash - fh <= config.hash_threshold:
+            return True
+
+    return False
 
 @dp.message(Command(commands=['ban']))
 async def ban_user(message: Message):
@@ -281,6 +319,29 @@ async def delete_sticker_message(message: Message):
         error_message = f"❌ Не удалось удалить стикер от {username}: {e}"
         logging.error(error_message)
         await send_log_to_admin(error_message)
+
+
+@dp.message(lambda message: is_not_channel_post(message))
+async def delete_forbidden_photo(message: Message):
+    if message.photo and await is_forbidden_photo(message):
+        username = (
+            message.from_user.username
+            or str(message.from_user.id)
+            if message.from_user else "неизвестный"
+        )
+        await message.delete()
+        warning = await message.answer(
+            f"@{username}, отправка этого изображения запрещена."
+        )
+        log_msg = (
+            f"✔️ Удалено запрещённое изображение от пользователя "
+            f"{username} ({message.from_user.id if message.from_user else '??'})"
+        )
+        logging.info(log_msg)
+        await send_log_to_admin(log_msg)
+        await asyncio.create_task(delete_after_delay(warning, 30))
+        return
+
 
 @dp.message(is_not_channel_post)
 async def check_with_openai(message: Message):
